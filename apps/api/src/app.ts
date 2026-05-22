@@ -1,13 +1,14 @@
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
+import { clerkMiddleware } from "@clerk/express";
 import { sessionsRouter } from "./routes/sessions.js";
 import { JSON_BODY_LIMIT, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_CREATE_SESSION } from "./utils/constants.js";
 import { logger } from "./utils/logger.js";
 
 /**
  * Build and return the Express application.
- * Configures CORS, body parsing, rate limiting, and routes.
+ * Configures CORS, body parsing, authentication, rate limiting, and routes.
  */
 export function createApp() {
   const app = express();
@@ -40,6 +41,12 @@ export function createApp() {
 
   // ── Body parsing ────────────────────────────────────────────────────────────
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+
+  // ── Clerk Authentication Middleware ─────────────────────────────────────────
+  // This middleware adds req.auth to all routes, making user authentication
+  // data available. It doesn't block unauthenticated requests - use requireAuth
+  // middleware on specific routes to enforce authentication.
+  app.use(clerkMiddleware());
 
   // ── Rate limiting ───────────────────────────────────────────────────────────
   // Global rate limit: generous ceiling to catch abuse, not normal usage.

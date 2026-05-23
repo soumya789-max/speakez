@@ -8,6 +8,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
+  serverExternalPackages: ["@mediapipe/tasks-vision"],
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

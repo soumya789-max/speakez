@@ -8,132 +8,176 @@ export type VisionMetrics = {
   face_present: boolean;
 };
 
-type FaceResult = { faceLandmarks: any[] };
-type PoseResult = { landmarks: any[] };
+type Landmark = { x: number; y: number; z?: number };
+type FaceLandmarks = Array<Array<Landmark>>;
 
-type VisionRuntime = {
-  faceLandmarker: { detectForVideo: (video: HTMLVideoElement, timestamp: number) => FaceResult };
-  poseLandmarker: { detectForVideo: (video: HTMLVideoElement, timestamp: number) => PoseResult };
+type FaceLandmarkerInstance = {
+  detect: (image: TexImageSource) => { faceLandmarks?: FaceLandmarks };
+  close?: () => void;
 };
 
+type VisionRuntime = {
+  faceLandmarker: FaceLandmarkerInstance;
+};
+
+const FACE_MODEL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+const MAX_DETECT_WIDTH = 480;
+const WASM_PATH = "/mediapipe/wasm";
+
+let sharedRuntime: Promise<VisionRuntime> | null = null;
+
+async function createRuntime(): Promise<VisionRuntime> {
+  const { FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
+
+  const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+
+  const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: FACE_MODEL, delegate: "CPU" },
+    runningMode: "IMAGE",
+    numFaces: 1,
+    outputFaceBlendshapes: false,
+    outputFacialTransformationMatrixes: false,
+  });
+
+  return { faceLandmarker };
+}
+
+function getRuntime(): Promise<VisionRuntime> {
+  if (!sharedRuntime) {
+    sharedRuntime = createRuntime().catch((err) => {
+      sharedRuntime = null;
+      throw err;
+    });
+  }
+  return sharedRuntime;
+}
+
+function isVideoReady(video: HTMLVideoElement) {
+  return (
+    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+    video.videoWidth > 0 &&
+    video.videoHeight > 0 &&
+    !video.ended
+  );
+}
+
+function eyeContactFromFace(landmarks: FaceLandmarks): number {
+  if (!landmarks.length) return 0;
+  const face = landmarks[0];
+  const leftIris = face?.[468];
+  const rightIris = face?.[473];
+  if (!leftIris || !rightIris) return 0.5;
+  const avgX = (leftIris.x + rightIris.x) / 2;
+  return Math.max(0, 1 - Math.abs(avgX - 0.5) * 4);
+}
+
+/** Head tilt from cheek landmarks when pose model is not used. */
+function postureFromFace(landmarks: FaceLandmarks): Posture {
+  if (!landmarks.length) return "ok";
+  const face = landmarks[0];
+  const leftCheek = face?.[234];
+  const rightCheek = face?.[454];
+  if (!leftCheek || !rightCheek) return "ok";
+  const tilt = Math.abs(leftCheek.y - rightCheek.y);
+  if (tilt > 0.04) return "needs_work";
+  return "good";
+}
+
+async function frameBitmap(video: HTMLVideoElement): Promise<ImageBitmap | null> {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+
+  const w = vw <= MAX_DETECT_WIDTH ? vw : MAX_DETECT_WIDTH;
+  const h = vw <= MAX_DETECT_WIDTH ? vh : Math.max(1, Math.round((vh * MAX_DETECT_WIDTH) / vw));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(video, 0, 0, w, h);
+
+  try {
+    return await createImageBitmap(canvas);
+  } catch {
+    return null;
+  }
+}
+
 export const useVisionMetrics = (videoRef: React.RefObject<HTMLVideoElement | null>) => {
-  const runtimePromiseRef = useRef<Promise<VisionRuntime> | null>(null);
-  const lastTimestampRef = useRef<number>(0);
   const lastNoseRef = useRef<{ x: number; y: number } | null>(null);
+  const detectQueueRef = useRef<Promise<VisionMetrics> | null>(null);
 
-  async function loadRuntime(): Promise<VisionRuntime> {
-    const { FaceLandmarker, FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-    
-    const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate: "GPU"
-      },
-      runningMode: "VIDEO",
-      numFaces: 1
-    });
-
-    const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-        delegate: "GPU"
-      },
-      runningMode: "VIDEO"
-    });
-
-    return { faceLandmarker, poseLandmarker };
+  function reset() {
+    lastNoseRef.current = null;
   }
 
-  function getRuntime(): Promise<VisionRuntime> {
-    if (!runtimePromiseRef.current) {
-      runtimePromiseRef.current = loadRuntime().catch((err) => {
-        runtimePromiseRef.current = null;
-        throw err;
-      });
-    }
-    return runtimePromiseRef.current;
-  }
-
-  function eyeContactFromFace(landmarks: any[]): number {
-    if (!landmarks || landmarks.length === 0) return 0;
-    const face = landmarks[0];
-    const leftIris = face[468];
-    const rightIris = face[473];
-    if (!leftIris || !rightIris) return 0.5;
-    const avgX = (leftIris.x + rightIris.x) / 2;
-    const distFromCenter = Math.abs(avgX - 0.5);
-    return Math.max(0, 1 - distFromCenter * 4);
-  }
-
-  function postureFromPose(landmarks: any[]): Posture {
-    if (!landmarks || landmarks.length === 0) return "ok";
-    const pose = landmarks[0];
-    const leftShoulder = pose[11];
-    const rightShoulder = pose[12];
-    if (!leftShoulder || !rightShoulder) return "ok";
-    const tilt = Math.abs(leftShoulder.y - rightShoulder.y);
-    if (tilt > 0.1) return "needs_work";
-    if (leftShoulder.y > 0.8) return "needs_work"; // Slumping
-    return "good";
-  }
-
-  function movementFromFace(landmarks: any[], lastNose: React.MutableRefObject<{ x: number; y: number } | null>): number {
-    if (!landmarks || landmarks.length === 0) return 0;
-    const nose = landmarks[0][1];
+  function movementFromFace(landmarks: FaceLandmarks): number {
+    if (!landmarks.length) return 0;
+    const nose = landmarks[0]?.[1];
     if (!nose) return 0;
-    if (!lastNose.current) {
-      lastNose.current = { x: nose.x, y: nose.y };
+    if (!lastNoseRef.current) {
+      lastNoseRef.current = { x: nose.x, y: nose.y };
       return 0;
     }
-    const dx = nose.x - lastNose.current.x;
-    const dy = nose.y - lastNose.current.y;
+    const dx = nose.x - lastNoseRef.current.x;
+    const dy = nose.y - lastNoseRef.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    lastNose.current = { x: nose.x, y: nose.y };
+    lastNoseRef.current = { x: nose.x, y: nose.y };
     return Math.min(1, dist * 50);
   }
 
   const analyze = async (): Promise<VisionMetrics> => {
-    const video = videoRef.current;
-    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
-      return { eye_contact: 0, posture: "ok", movement: 0, face_present: false };
-    }
+    if (detectQueueRef.current) return detectQueueRef.current;
 
-    try {
-      const runtime = await getRuntime();
-      const now = Math.max(lastTimestampRef.current + 1, performance.now());
-      lastTimestampRef.current = now;
-
-      let faceResult: FaceResult | null = null;
-      let poseResult: PoseResult | null = null;
-
-      try {
-        faceResult = runtime.faceLandmarker.detectForVideo(video, now);
-      } catch (e) {
-        console.warn("[vision] face detect error", e);
-      }
-
-      try {
-        poseResult = runtime.poseLandmarker.detectForVideo(video, now);
-      } catch (e) {
-        console.warn("[vision] pose detect error", e);
-      }
-
-      const faceLandmarks = faceResult?.faceLandmarks || [];
-      const poseLandmarks = poseResult?.landmarks || [];
-
-      return {
-        eye_contact: Number(eyeContactFromFace(faceLandmarks).toFixed(3)),
-        posture: postureFromPose(poseLandmarks),
-        movement: Number(movementFromFace(faceLandmarks, lastNoseRef).toFixed(3)),
-        face_present: Boolean(faceLandmarks?.length)
+    const run = async (): Promise<VisionMetrics> => {
+      const empty: VisionMetrics = {
+        eye_contact: 0,
+        posture: "ok",
+        movement: 0,
+        face_present: false,
       };
-    } catch (err) {
-      console.error("[vision] runtime error", err);
-      runtimePromiseRef.current = null;
-      return { eye_contact: 0, posture: "ok", movement: 0, face_present: false };
-    }
+
+      const video = videoRef.current;
+      if (!video || !isVideoReady(video)) return empty;
+
+      const bitmap = await frameBitmap(video);
+      if (!bitmap) return empty;
+
+      try {
+        const runtime = await getRuntime();
+        let faceLandmarks: FaceLandmarks = [];
+
+        try {
+          const faceResult = runtime.faceLandmarker.detect(bitmap);
+          faceLandmarks = faceResult?.faceLandmarks ?? [];
+        } catch (e) {
+          console.warn("[vision] face detect error", e);
+        }
+
+        return {
+          eye_contact: Number(eyeContactFromFace(faceLandmarks).toFixed(3)),
+          posture: postureFromFace(faceLandmarks),
+          movement: Number(movementFromFace(faceLandmarks).toFixed(3)),
+          face_present: faceLandmarks.length > 0,
+        };
+      } catch (err) {
+        console.error("[vision] runtime error", err);
+        sharedRuntime = null;
+        return empty;
+      } finally {
+        bitmap.close();
+      }
+    };
+
+    detectQueueRef.current = run().finally(() => {
+      detectQueueRef.current = null;
+    });
+    return detectQueueRef.current;
   };
 
-  return { analyze };
+  return { analyze, reset };
 };

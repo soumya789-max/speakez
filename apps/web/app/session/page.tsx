@@ -138,6 +138,15 @@ export default function LiveSessionPage() {
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
+  useEffect(() => {
+    if (status !== "live") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [status]);
+
   function chooseScenario(s: Scenario) {
     setScenario(s);
     const defaultTitles = ["Mock interview", "Pitch practice", "Meeting simulation"];
@@ -258,7 +267,12 @@ export default function LiveSessionPage() {
       if (m.eye_contact < 0.45) msgs.push("Look closer to the camera for stronger eye contact.");
       if (m.posture === "needs_work") msgs.push("Square your shoulders and sit a bit taller.");
       if (m.movement > 0.55) msgs.push("Reduce head movement to look steadier.");
-      if (msgs[0]) setNudges((x) => [{ level: "info" as const, message: msgs[0]! }, ...x].slice(0, 5));
+      if (msgs[0]) {
+        setNudges((x) => {
+          if (x[0]?.message === msgs[0]) return x;
+          return [{ level: "info" as const, message: msgs[0]! }, ...x].slice(0, 5);
+        });
+      }
     } catch { /* ignore */ } finally { isAnalyzingRef.current = false; }
   }
 
@@ -488,132 +502,164 @@ export default function LiveSessionPage() {
     </div>
   );
 
-  // ── Live screen ──────────────────────────────────────────────────────────
+  // ── Live screen — fixed viewport shell; panels scroll internally ─────────
   return (
-    <div className="animate-fade-in" style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.25rem", height: "calc(100vh - 5rem)", maxHeight: "800px" }}>
-      {/* Chat panel */}
-      <div className="card" style={{ display: "flex", flexDirection: "column", padding: "1.25rem" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span className="animate-live" style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f43f5e", display: "inline-block" }} />
-              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#fda4af", letterSpacing: "0.08em" }}>LIVE</span>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{title}</div>
-              <div style={{ fontSize: "0.72rem", color: "var(--text-3)" }}>{sc.label} · {purposeMode}</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>{fmtTime(elapsed)}</span>
-            <button onClick={finish} disabled={status === "ending"} className="btn btn-danger" style={{ fontSize: "0.8rem", padding: "0.4rem 0.85rem" }}>
-              {status === "ending" ? "Ending…" : "End & Analyze"}
-            </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.75rem", paddingRight: "0.25rem" }}>
-          {turns.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <Loader2 className="h-8 w-8 text-primary mx-auto mb-3 animate-spin" />
-              Connecting to AI coach…
-            </div>
-          )}
-          {turns.map((t, i) => (
-            <div key={i} className={`animate-slide-up ${t.speaker === "user" ? "bubble-user" : "bubble-ai"}`}
-              style={{ maxWidth: "88%", padding: "0.75rem 1rem", alignSelf: t.speaker === "user" ? "flex-end" : "flex-start" }}>
-              <div className="text-[0.68rem] text-muted-foreground mb-1 font-semibold flex items-center gap-1">
-                {t.speaker === "ai" ? (
-                  <><Bot className="h-3 w-3" /> Coach</>
-                ) : (
-                  <><User className="h-3 w-3" /> You</>
-                )}
+    <div className="fixed inset-x-0 top-14 bottom-16 z-30 flex flex-col overflow-hidden bg-background md:top-0 md:bottom-0 md:left-60">
+      <div className="flex flex-1 min-h-0 gap-3 p-3 md:gap-4 md:p-4">
+        {/* Chat panel */}
+        <div className="card flex min-w-0 flex-1 flex-col overflow-hidden p-3 md:p-4">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-border pb-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="animate-live inline-block h-2 w-2 rounded-full bg-rose-500" />
+                <span className="text-[0.72rem] font-bold tracking-widest text-rose-300">LIVE</span>
               </div>
-              <div style={{ fontSize: "0.875rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{t.text}</div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold md:text-base">{title}</div>
+                <div className="text-xs text-muted-foreground">
+                  {sc.label} · {purposeMode}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Input */}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", flexShrink: 0 }}>
-          <input value={draft} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Type a response or use mic…" className="input-field" style={{ flex: 1 }} />
-          {canUseMic && (
-            <Button
-              type="button"
-              variant={isStreamingMic ? "destructive" : "secondary"}
-              size="icon"
-              onClick={() => isStreamingMic ? stopMicStream() : void startMicStream()}
-              title="Microphone"
-            >
-              {isStreamingMic ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button>
-          )}
-          <Button type="button" onClick={send} className="gap-2">
-            <Send className="h-4 w-4" />
-            Send
-          </Button>
-        </div>
-      </div>
-
-      {/* Sidebar */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-        {/* Camera */}
-        <div className="card" style={{ padding: "1rem" }}>
-          <div className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            Camera
-          </div>
-          <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000", aspectRatio: "4/3" }}>
-            <video ref={videoRef} muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", opacity: isStreamingVideo ? 1 : 0.2 }} />
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-          </div>
-          <button onClick={() => isStreamingVideo ? stopVideoStream() : void startVideoStream()}
-            className={`btn ${isStreamingVideo ? "btn-danger" : "btn-ghost"}`}
-            style={{ marginTop: "0.6rem", width: "100%", justifyContent: "center", fontSize: "0.8rem" }}>
-            {isStreamingVideo ? "Stop camera" : "Start camera"}
-          </button>
-
-          {/* Arc gauges */}
-          {visionMetrics && (
-            <div style={{ display: "flex", justifyContent: "space-around", marginTop: "0.75rem" }}>
-              <ArcGauge value={visionMetrics.eye_contact} label="Eye" color="#6366f1" />
-              <ArcGauge value={visionMetrics.posture === "good" ? 1 : visionMetrics.posture === "ok" ? 0.6 : 0.3} label="Posture" color="#10b981" />
-              <ArcGauge value={Math.max(0, 1 - visionMetrics.movement)} label="Steady" color="#f59e0b" />
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-sm font-semibold tabular-nums text-muted-foreground">{fmtTime(elapsed)}</span>
+              <button
+                type="button"
+                onClick={finish}
+                disabled={status === "ending"}
+                className="btn btn-danger whitespace-nowrap px-3 py-1.5 text-xs md:text-sm"
+              >
+                {status === "ending" ? "Ending…" : "End & Analyze"}
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* Nudges */}
-        <div className="card" style={{ flex: 1, padding: "1rem", overflow: "hidden" }}>
-          <div className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Live Nudges
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", overflowY: "auto", maxHeight: "100%" }}>
-            {nudges.length === 0 && (
-              <div style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>Pace and clarity signals will appear here.</div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+            {turns.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
+                Connecting to AI coach…
+              </div>
             )}
-            {nudges.map((n, i) => (
+            {turns.map((t, i) => (
               <div
                 key={i}
-                className={`animate-slide-in flex items-start gap-2 p-3 rounded-md text-sm border ${
-                  n.level === "warn"
-                    ? "bg-warning/10 border-warning/25 text-warning-foreground"
-                    : "bg-secondary/50 border-border text-muted-foreground"
+                className={`animate-slide-up max-w-[88%] px-4 py-3 ${
+                  t.speaker === "user" ? "bubble-user self-end" : "bubble-ai self-start"
                 }`}
               >
-                {n.level === "warn" ? (
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                ) : (
-                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                )}
-                <span>{n.message}</span>
+                <div className="mb-1 flex items-center gap-1 text-[0.68rem] font-semibold text-muted-foreground">
+                  {t.speaker === "ai" ? (
+                    <>
+                      <Bot className="h-3 w-3" /> Coach
+                    </>
+                  ) : (
+                    <>
+                      <User className="h-3 w-3" /> You
+                    </>
+                  )}
+                </div>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">{t.text}</div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-3 flex shrink-0 gap-2 border-t border-border pt-3">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Type a response or use mic…"
+              className="input-field min-w-0 flex-1"
+            />
+            {canUseMic && (
+              <Button
+                type="button"
+                variant={isStreamingMic ? "destructive" : "secondary"}
+                size="icon"
+                className="shrink-0"
+                onClick={() => (isStreamingMic ? stopMicStream() : void startMicStream())}
+                title="Microphone"
+              >
+                {isStreamingMic ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            )}
+            <Button type="button" onClick={send} className="shrink-0 gap-2">
+              <Send className="h-4 w-4" />
+              <span className="hidden sm:inline">Send</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Right column — camera + nudges */}
+        <div className="hidden min-h-0 w-[260px] shrink-0 flex-col gap-3 overflow-hidden lg:flex xl:w-[300px]">
+          <div className="card shrink-0 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <Video className="h-4 w-4" />
+              Camera
+            </div>
+            <div className="aspect-[4/3] overflow-hidden rounded-md bg-black">
+              <video
+                ref={videoRef}
+                muted
+                playsInline
+                className="h-full w-full object-cover"
+                style={{ opacity: isStreamingVideo ? 1 : 0.2 }}
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <button
+              type="button"
+              onClick={() => (isStreamingVideo ? stopVideoStream() : void startVideoStream())}
+              className={`btn mt-3 w-full justify-center text-sm ${isStreamingVideo ? "btn-danger" : "btn-ghost"}`}
+            >
+              {isStreamingVideo ? "Stop camera" : "Start camera"}
+            </button>
+            {visionMetrics && (
+              <div className="mt-3 flex justify-around">
+                <ArcGauge value={visionMetrics.eye_contact} label="Eye" color="#6366f1" />
+                <ArcGauge
+                  value={visionMetrics.posture === "good" ? 1 : visionMetrics.posture === "ok" ? 0.6 : 0.3}
+                  label="Posture"
+                  color="#10b981"
+                />
+                <ArcGauge value={Math.max(0, 1 - visionMetrics.movement)} label="Steady" color="#f59e0b" />
+              </div>
+            )}
+          </div>
+
+          <div className="card flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+            <div className="mb-3 flex shrink-0 items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <Zap className="h-4 w-4" />
+              Live Nudges
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              {nudges.length === 0 && (
+                <p className="text-sm text-muted-foreground">Pace and clarity signals will appear here.</p>
+              )}
+              {nudges.map((n, i) => (
+                <div
+                  key={i}
+                  className={`animate-slide-in flex items-start gap-2 rounded-md border p-3 text-sm ${
+                    n.level === "warn"
+                      ? "border-warning/25 bg-warning/10 text-warning-foreground"
+                      : "border-border bg-secondary/50 text-muted-foreground"
+                  }`}
+                >
+                  {n.level === "warn" ? (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <span>{n.message}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

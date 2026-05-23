@@ -1,15 +1,62 @@
+import Link from "next/link";
+import {
+  Map,
+  Trophy,
+  Target,
+  TrendingUp,
+  CheckCircle2,
+  Play,
+  ExternalLink,
+  Briefcase,
+  Presentation,
+  Users,
+  Flame,
+  Zap,
+  Globe,
+  Award,
+  type LucideIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getProgress } from "../../lib/api";
 
 export const metadata = { title: "Improvement Roadmap – SpeakEZ" };
 
-const ISSUE_TIPS: Record<string, {tip: string; drill: string; videoUrl?: string }> = {
-  "filler words": { tip: "Pause intentionally instead of filling silence.", drill: "Read a paragraph aloud, pausing at every comma.", videoUrl: "https://www.youtube.com/watch?v=kYv_M_hX2i4" },
-  "pace": {tip: "Target 130–160 words per minute. Record yourself and count.", drill: "Read text at 3 speeds: slow, normal, fast.", videoUrl: "https://www.youtube.com/watch?v=eIho2S0ZahI" },
-  "eye contact": {tip: "Look at the camera lens, not your own preview.", drill: "Practice 5 seconds on camera, 4 seconds off, repeat.", videoUrl: "https://www.youtube.com/watch?v=8jEIqEdA8b4" },
-  "posture": {tip: "Shoulders relaxed, chin level, sit 10cm back.", drill: "Sit against a wall for 5 minutes before each session.", videoUrl: "https://www.youtube.com/watch?v=Ks-_Mh1QhMc" },
-  "structure": { tip: "Use STAR (Situation, Task, Action, Result).", drill: "Tell a past experience in exactly 90 seconds using STAR.", videoUrl: "https://www.youtube.com/watch?v=8PjwO2bCvlQ" },
-  "clarity": { tip: "Overarticulate consonants when nervous. Slow your opening.", drill: "Read tongue twisters for 2 minutes to warm up.", videoUrl: "https://www.youtube.com/watch?v=WPvGqX-TXP0" },
-  "confidence": { tip: "Power pose 2 minutes before speaking.", drill: "Record a 60-second intro video each morning this week.", videoUrl: "https://www.youtube.com/watch?v=Ks-_Mh1QhMc" }
+const ISSUE_TIPS: Record<string, { tip: string; drill: string; videoUrl?: string }> = {
+  "filler words": {
+    tip: "Pause intentionally instead of filling silence.",
+    drill: "Read a paragraph aloud, pausing at every comma.",
+    videoUrl: "https://www.youtube.com/watch?v=kYv_M_hX2i4",
+  },
+  pace: {
+    tip: "Target 130–160 words per minute. Record yourself and count.",
+    drill: "Read text at 3 speeds: slow, normal, fast.",
+    videoUrl: "https://www.youtube.com/watch?v=eIho2S0ZahI",
+  },
+  "eye contact": {
+    tip: "Look at the camera lens, not your own preview.",
+    drill: "Practice 5 seconds on camera, 4 seconds off, repeat.",
+    videoUrl: "https://www.youtube.com/watch?v=8jEIqEdA8b4",
+  },
+  posture: {
+    tip: "Shoulders relaxed, chin level, sit 10cm back.",
+    drill: "Sit against a wall for 5 minutes before each session.",
+    videoUrl: "https://www.youtube.com/watch?v=Ks-_Mh1QhMc",
+  },
+  structure: {
+    tip: "Use STAR (Situation, Task, Action, Result).",
+    drill: "Tell a past experience in exactly 90 seconds using STAR.",
+    videoUrl: "https://www.youtube.com/watch?v=8PjwO2bCvlQ",
+  },
+  clarity: {
+    tip: "Overarticulate consonants when nervous. Slow your opening.",
+    drill: "Read tongue twisters for 2 minutes to warm up.",
+    videoUrl: "https://www.youtube.com/watch?v=WPvGqX-TXP0",
+  },
+  confidence: {
+    tip: "Power pose 2 minutes before speaking.",
+    drill: "Record a 60-second intro video each morning this week.",
+    videoUrl: "https://www.youtube.com/watch?v=Ks-_Mh1QhMc",
+  },
 };
 
 function getIssueTip(issue: string) {
@@ -17,25 +64,58 @@ function getIssueTip(issue: string) {
   for (const key of Object.keys(ISSUE_TIPS)) {
     if (lower.includes(key)) return { key, ...ISSUE_TIPS[key] };
   }
-  return { key: issue, tip: "Keep practicing to reduce this pattern.", drill: "Review your session transcripts for specific examples.", videoUrl: undefined };
+  return {
+    key: issue,
+    tip: "Keep practicing to reduce this pattern.",
+    drill: "Review your session transcripts for specific examples.",
+    videoUrl: undefined,
+  };
 }
 
+const SCENARIO_CONFIG: Record<
+  string,
+  { label: string; icon: LucideIcon; color: string }
+> = {
+  INTERVIEW: { label: "Interview", icon: Briefcase, color: "text-primary" },
+  PITCH: { label: "Pitch", icon: Presentation, color: "text-chart-4" },
+  MEETING: { label: "Meeting", icon: Users, color: "text-success" },
+};
+
 const MILESTONES = [
-  { id: "first",      label: "First Session",        emoji: "🚀", check: (n: number) => n >= 1 },
-  { id: "three",      label: "3 Sessions",            emoji: "🎯", check: (n: number) => n >= 3 },
-  { id: "ten",        label: "10 Sessions",           emoji: "🏅", check: (n: number) => n >= 10 },
-  { id: "confidence", label: "Avg confidence > 70%", emoji: "⚡", check: (_: number, avg: number | null) => (avg ?? 0) >= 0.7 },
-  { id: "allscenario",label: "Tried all 3 scenarios", emoji: "🌐", check: (_: number, __: number | null, all: boolean) => all }
+  { id: "first", label: "First Session", icon: Flame, check: (n: number) => n >= 1 },
+  { id: "three", label: "3 Sessions", icon: Target, check: (n: number) => n >= 3 },
+  { id: "ten", label: "10 Sessions", icon: Award, check: (n: number) => n >= 10 },
+  {
+    id: "confidence",
+    label: "Avg confidence > 70%",
+    icon: Zap,
+    check: (_: number, avg: number | null) => (avg ?? 0) >= 0.7,
+  },
+  {
+    id: "allscenario",
+    label: "Tried all 3 scenarios",
+    icon: Globe,
+    check: (_: number, __: number | null, all: boolean) => all,
+  },
 ];
 
-function Sparkline({ values, color = "#6366f1" }: { values: number[]; color?: string }) {
+function Sparkline({ values, color = "var(--primary)" }: { values: number[]; color?: string }) {
   if (values.length < 2) return null;
-  const w = 120, h = 36;
+  const w = 100,
+    h = 32;
   const max = Math.max(...values, 0.01);
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (v / max) * (h - 4) - 2}`);
+  const pts = values.map(
+    (v, i) => `${(i / (values.length - 1)) * w},${h - (v / max) * (h - 4) - 2}`
+  );
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <path d={`M${pts.join("L")}`} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block">
+      <path
+        d={`M${pts.join("L")}`}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -47,78 +127,114 @@ export default async function RoadmapPage() {
   const allScenarios = (progress?.byScenario ?? []).every((s) => s.sessions > 0);
   const issues = progress?.repeatedIssues ?? [];
   const trendByScenario = progress?.byScenario ?? [];
-  const nextRecommendation = [...trendByScenario]
-    .filter((s) => s.analyzed > 0)
-    .sort((a, b) => (a.avgConfidence ?? 0) - (b.avgConfidence ?? 0))[0] ?? null;
+  const nextRecommendation =
+    [...trendByScenario]
+      .filter((s) => s.analyzed > 0)
+      .sort((a, b) => (a.avgConfidence ?? 0) - (b.avgConfidence ?? 0))[0] ?? null;
 
   return (
-    <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+    <div className="animate-fade-in space-y-8">
       <div>
-        <h1 style={{ fontSize: "1.6rem", fontWeight: 800, margin: 0 }}>🗺 Improvement Roadmap</h1>
-        <p style={{ color: "var(--text-2)", marginTop: "0.35rem", fontSize: "0.9rem" }}>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-3">
+          <Map className="h-7 w-7 text-primary" />
+          Improvement Roadmap
+        </h1>
+        <p className="text-muted-foreground mt-2">
           Your personalized path to confident, high-impact communication.
         </p>
       </div>
 
-      {/* Milestones */}
-      <div className="card">
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 1.25rem" }}>🏆 Milestones</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem" }}>
+      <div className="card-elevated p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Trophy className="h-5 w-5 text-warning" />
+          <h2 className="text-lg font-semibold">Milestones</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {MILESTONES.map((m) => {
             const done = m.check(totalSessions, avgConf, allScenarios);
+            const Icon = m.icon;
             return (
-              <div key={m.id} style={{
-                padding: "0.85rem", borderRadius: "var(--radius-md)",
-                border: `1px solid ${done ? "rgba(99,102,241,0.3)" : "var(--border)"}`,
-                background: done ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.01)",
-                opacity: done ? 1 : 0.45
-              }}>
-                <div style={{ fontSize: "1rem" }}>{m.emoji}</div>
-                <div style={{ fontSize: "0.9rem", fontWeight: 600, marginTop: "0.4rem", color: done ? "#0d2c94ff" : "var(--text-2)" }}>
+              <div
+                key={m.id}
+                className={`p-4 rounded-lg border text-center transition-all ${
+                  done
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-border bg-card opacity-50"
+                }`}
+              >
+                <Icon
+                  className={`h-6 w-6 mx-auto ${done ? "text-primary" : "text-muted-foreground"}`}
+                />
+                <div
+                  className={`text-sm font-medium mt-2 ${done ? "text-foreground" : "text-muted-foreground"}`}
+                >
                   {m.label}
                 </div>
-                {done && <div style={{ fontSize: "0.8rem", color: "#177851ff", marginTop: "0.2rem" }}>Achieved ✓</div>}
+                {done && (
+                  <div className="flex items-center justify-center gap-1 text-xs text-success mt-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Achieved
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Focus areas */}
-      <div className="card">
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 1.25rem" }}>🎯 Ranked Focus Areas</h2>
+      <div className="card-elevated p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Target className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Ranked Focus Areas</h2>
+        </div>
         {issues.length === 0 ? (
-          <p style={{ color: "var(--text-3)", fontSize: "0.875rem" }}>
+          <p className="text-muted-foreground">
             Complete 2+ analyzed sessions to unlock your personalized focus areas.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div className="space-y-4">
             {issues.map((item, i) => {
               const info = getIssueTip(item.issue);
               return (
-                <div key={item.issue} style={{
-                  padding: "1rem 1.25rem", borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border)",
-                  background: i === 0 ? "rgba(99,102,241,0.06)" : "rgba(255,255,255,0.01)"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                        {i === 0 && <span style={{ color: "#fc1a1aff" }}>Top Priority: </span>}
-                        {item.issue}
-                      </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
-                        Seen {item.count} time{item.count !== 1 ? "s" : ""} across sessions
-                      </div>
-                    </div>
+                <div
+                  key={item.issue}
+                  className={`p-5 rounded-lg border ${
+                    i === 0
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <div className="mb-3">
+                    <span
+                      className={`font-semibold ${i === 0 ? "text-primary" : "text-foreground"}`}
+                    >
+                      {i === 0 && (
+                        <span className="text-destructive">Top Priority: </span>
+                      )}
+                      {item.issue}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Seen {item.count} time{item.count !== 1 ? "s" : ""} across
+                      sessions
+                    </p>
                   </div>
-                  <div style={{ marginTop: "0.85rem", padding: "0.85rem", borderRadius: "var(--radius-sm)", background: "rgba(244, 244, 244, 0.2)", fontSize: "0.8rem", color: "var(--text-2)", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                    <span><strong>Tip:</strong> {info.tip}</span>
-                    <span><strong>Drill:</strong> {info.drill}</span>
+                  <div className="p-4 rounded-md bg-secondary/50 text-sm space-y-2">
+                    <p>
+                      <strong>Tip:</strong> {info.tip}
+                    </p>
+                    <p>
+                      <strong>Drill:</strong> {info.drill}
+                    </p>
                     {info.videoUrl && (
-                      <span style={{ marginTop: "0.25rem" }}>
-                        <strong>Watch:</strong> <a href={info.videoUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#1b309eff", textDecoration: "underline" }}>Video Tutorial on YouTube</a>
-                      </span>
+                      <a
+                        href={info.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        Watch Tutorial
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
                 </div>
@@ -128,45 +244,78 @@ export default async function RoadmapPage() {
         )}
       </div>
 
-      {/* Scenario trends */}
-      <div className="card">
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 1.25rem" }}>📈 Scenario Trends</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "1rem" }}>
+      <div className="card-elevated p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Scenario Trends</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
           {trendByScenario.map((item) => {
-            const colorMap: Record<string, string> = { INTERVIEW: "#6366f1", PITCH: "#7c3aed", MEETING: "#10b981" };
-            const col = colorMap[item.scenario] ?? "#6366f1";
+            const config = SCENARIO_CONFIG[item.scenario];
+            const Icon = config?.icon ?? Briefcase;
             const vals = (progress?.confidenceTrend ?? [])
               .filter((t) => t.scenario === item.scenario && t.confidence != null)
               .map((t) => t.confidence as number);
+
             return (
-              <div key={item.scenario} style={{ padding: "1rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{item.scenario}</span>
-                  <span style={{ fontWeight: 700, color: col }}>{item.avgConfidence != null ? `${Math.round(item.avgConfidence * 100)}%` : "—"}</span>
+              <div key={item.scenario} className="p-4 rounded-lg border border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${config?.color ?? "text-primary"}`} />
+                    <span className="font-medium">
+                      {config?.label ?? item.scenario}
+                    </span>
+                  </div>
+                  <span className={`font-bold ${config?.color ?? "text-primary"}`}>
+                    {item.avgConfidence != null
+                      ? `${Math.round(item.avgConfidence * 100)}%`
+                      : "—"}
+                  </span>
                 </div>
-                <div style={{ marginTop: "0.75rem" }}>
-                  {vals.length >= 2 ? <Sparkline values={vals} color={col} /> : <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>Not enough data</span>}
+                <div className="h-8">
+                  {vals.length >= 2 ? (
+                    <Sparkline values={vals} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Not enough data
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: "0.72rem", color: "var(--text-3)", marginTop: "0.4rem" }}>
-                  {item.sessions} session{item.sessions !== 1 ? "s" : ""}, {item.analyzed} analyzed
-                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {item.sessions} session{item.sessions !== 1 ? "s" : ""},{" "}
+                  {item.analyzed} analyzed
+                </p>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Recommendation */}
       {nextRecommendation && (
-        <div className="card-glow" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+        <div className="card-glow p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <div style={{ fontSize: "0.72rem", color: "var(--text-2)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>Next Session Recommendation</div>
-            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#a5b4fc", marginTop: "0.35rem" }}>Practice {nextRecommendation.scenario}</div>
-            <div style={{ fontSize: "0.82rem", color: "var(--text-2)", marginTop: "0.2rem" }}>
-              Weakest scenario — {nextRecommendation.avgConfidence != null ? `avg ${Math.round(nextRecommendation.avgConfidence * 100)}% confidence` : "no data yet"}.
-            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+              Next Session Recommendation
+            </p>
+            <h3 className="text-lg font-bold text-primary">
+              Practice{" "}
+              {SCENARIO_CONFIG[nextRecommendation.scenario]?.label ??
+                nextRecommendation.scenario}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Weakest scenario —{" "}
+              {nextRecommendation.avgConfidence != null
+                ? `avg ${Math.round(nextRecommendation.avgConfidence * 100)}% confidence`
+                : "no data yet"}
+              .
+            </p>
           </div>
-          <a href="/session" className="btn btn-primary">Start session →</a>
+          <Button asChild>
+            <Link href="/session">
+              <Play className="h-4 w-4 mr-2" />
+              Start Session
+            </Link>
+          </Button>
         </div>
       )}
     </div>

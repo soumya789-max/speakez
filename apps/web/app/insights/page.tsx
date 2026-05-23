@@ -1,33 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSession } from "../../lib/api";
 import Link from "next/link";
+import { getSession } from "../../lib/api";
+import {
+  BarChart3,
+  CheckCircle2,
+  Star,
+  Target,
+  AlertTriangle,
+  Lightbulb,
+  Briefcase,
+  Loader2,
+  Presentation,
+  Users,
+  Mic,
+  ChevronLeft,
+  Eye,
+  Video,
+  VideoOff,
+  type LucideIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const SCENARIO_LABELS: Record<string, string> = {
-  INTERVIEW: "Interview",
-  PITCH: "Pitch",
-  MEETING: "Meeting"
+const SCENARIO_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
+  INTERVIEW: { label: "Interview", icon: Briefcase },
+  PITCH: { label: "Pitch", icon: Presentation },
+  MEETING: { label: "Meeting", icon: Users },
 };
 
 const DONE_STATUSES = new Set(["READY", "FAILED"]);
 
-function RadialScore({ value, label, size = 120 }: { value: number; label: string; size?: number }) {
-  const r = size * 0.4;
+type VisionData = {
+  score?: number;
+  available?: boolean;
+  reason?: string;
+  eye_contact?: number | null;
+  posture_score?: number | null;
+  stability?: number | null;
+  face_present_ratio?: number | null;
+  sample_count?: number;
+};
+
+function pct(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `${Math.round(value * 100)}%`;
+}
+
+function RadialScore({
+  value,
+  label,
+  size = 120,
+}: {
+  value: number;
+  label: string;
+  size?: number;
+}) {
+  const r = size * 0.38;
   const circ = 2 * Math.PI * r;
-  const fill = circ * (1 - value);
+  const fill = circ * (1 - Math.min(1, Math.max(0, value)));
   const strokeWidth = size * 0.08;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-      <div style={{ position: "relative", width: size, height: size }}>
+    <div className="flex flex-col items-center gap-3 shrink-0">
+      <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <circle
             cx={size / 2}
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="rgba(255,255,255,0.05)"
+            className="stroke-muted"
+            strokeOpacity={0.25}
             strokeWidth={strokeWidth}
           />
           <circle
@@ -35,7 +79,7 @@ function RadialScore({ value, label, size = 120 }: { value: number; label: strin
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="var(--primary)"
+            className="stroke-primary"
             strokeWidth={strokeWidth}
             strokeDasharray={circ}
             strokeDashoffset={fill}
@@ -44,15 +88,74 @@ function RadialScore({ value, label, size = 120 }: { value: number; label: strin
             style={{ transition: "stroke-dashoffset 0.8s ease-out" }}
           />
         </svg>
-        <div style={{
-          position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: `${size * 0.2}px`, fontWeight: 800, color: "var(--text-1)"
-        }}>
+        <div
+          className="absolute inset-0 flex items-center justify-center font-bold text-foreground"
+          style={{ fontSize: size * 0.22 }}
+        >
           {Math.round(value * 100)}%
         </div>
       </div>
-      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-2)" }}>{label}</span>
+      <span className="text-sm font-medium text-muted-foreground text-center">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+  className = "text-primary",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className="text-center p-4 rounded-lg bg-secondary/30 border border-border">
+      <div className={`text-2xl md:text-3xl font-bold ${className}`}>{value}</div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-1">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function VisionSection({ vision }: { vision: VisionData }) {
+  if (!vision.available) {
+    return (
+      <div className="card-elevated p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <VideoOff className="h-5 w-5 text-muted-foreground" />
+          <h3 className="font-semibold">On-Camera Presence</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Camera metrics were not included in this score. Start the camera during
+          your next session for eye contact, posture, and stability analysis.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-elevated p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <Video className="h-5 w-5 text-primary" />
+        <h3 className="font-semibold">On-Camera Presence</h3>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {vision.sample_count ?? 0} frames analyzed
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricTile label="Presence" value={pct(vision.score)} className="text-primary" />
+        <MetricTile label="Eye contact" value={pct(vision.eye_contact)} className="text-chart-2" />
+        <MetricTile label="Posture" value={pct(vision.posture_score)} className="text-success" />
+        <MetricTile label="Stability" value={pct(vision.stability)} className="text-warning" />
+      </div>
+      <p className="text-xs text-muted-foreground mt-4">
+        Derived from live camera analysis during your session and factored into your
+        overall confidence score.
+      </p>
     </div>
   );
 }
@@ -72,7 +175,7 @@ export default function InsightsPage() {
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
-    let intervalId: any = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const load = async () => {
       try {
@@ -98,203 +201,293 @@ export default function InsightsPage() {
     };
   }, [sessionId]);
 
-  if (!hasReadUrl) return <div className="text-sm text-white/60">Loading...</div>;
-  if (!sessionId) return <div className="text-sm text-white/60">Missing sessionId.</div>;
-  if (error) return <div className="text-sm text-white/60">{error}</div>;
-  if (!data) return <div className="text-sm text-white/60">Loading session data...</div>;
+  if (!hasReadUrl) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        Loading…
+      </div>
+    );
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="card-elevated p-8 text-center text-muted-foreground">
+        Missing session ID. Open this page from your session history.
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card-elevated p-8 text-center">
+        <p className="text-destructive font-medium">{error}</p>
+        <Button variant="outline" className="mt-4" asChild>
+          <Link href="/history">Back to History</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        Loading session data…
+      </div>
+    );
+  }
 
   const analysis = data.analysis;
+  const speechMetrics = analysis?.speechMetrics as Record<string, unknown> | undefined;
+  const vision = (speechMetrics?.vision as VisionData | undefined) ?? {};
+  const config = SCENARIO_CONFIG[data.scenario];
+  const ScenarioIcon = config?.icon ?? Briefcase;
+
+  const alignmentNotes = Array.isArray(analysis?.alignment?.notes)
+    ? (analysis.alignment.notes as string[])
+    : [];
+
+  const suggestions = [
+    ...(Array.isArray(analysis?.suggestions) ? analysis.suggestions : []),
+    ...alignmentNotes,
+  ] as string[];
+
+  const highlights = (analysis?.highlights ?? []) as Array<
+    { message?: string } | string
+  >;
 
   return (
-    <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+    <div className="animate-fade-in space-y-6 md:space-y-8 pb-8">
       {/* Header */}
-      <div className="card-glow" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
-            <span className={`badge badge-indigo`}>{SCENARIO_LABELS[data.scenario] || data.scenario}</span>
-            <span className={`badge ${data.status === "READY" ? "badge-emerald" : "badge-amber"}`}>{data.status}</span>
+      <div className="card-glow p-5 md:p-6">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="badge badge-primary">
+                <ScenarioIcon className="h-3 w-3" />
+                {config?.label ?? data.scenario}
+              </span>
+              <span
+                className={`badge ${
+                  data.status === "READY"
+                    ? "badge-success"
+                    : data.status === "FAILED"
+                      ? "badge-destructive"
+                      : "badge-muted"
+                }`}
+              >
+                {data.status}
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">
+              {data.title || "Practice Session"}
+            </h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              {new Date(data.createdAt).toLocaleString("en-US", {
+                dateStyle: "long",
+                timeStyle: "short",
+              })}
+            </p>
           </div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0 }}>{data.title || "Practice Session"}</h1>
-          <p style={{ color: "var(--text-2)", marginTop: "0.4rem", fontSize: "0.9rem" }}>
-            {new Date(data.createdAt).toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" })}
-          </p>
+          {analysis?.confidence != null && (
+            <RadialScore
+              value={analysis.confidence}
+              label="Overall Confidence"
+              size={130}
+            />
+          )}
         </div>
-        {analysis?.confidence != null && (
-          <RadialScore value={analysis.confidence} label="Overall Confidence" size={140} />
-        )}
       </div>
 
       {data.status === "ANALYZING" && (
-        <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
-          <div className="animate-live" style={{ fontSize: "2rem", marginBottom: "1rem" }}>⚙️</div>
-          <h3 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Analyzing your performance...</h3>
-          <p style={{ color: "var(--text-3)", fontSize: "0.875rem" }}>This will take about 30-60 seconds. Insights will appear automatically.</p>
+        <div className="card-elevated p-8 md:p-12 text-center">
+          <Loader2 className="h-10 w-10 text-primary mx-auto mb-4 animate-spin" />
+          <h3 className="font-semibold text-lg mb-2">Analyzing your performance</h3>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">
+            Processing your transcript, speech patterns, and camera metrics. This
+            usually takes 30–60 seconds.
+          </p>
         </div>
       )}
 
-      {analysis && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* Main Metrics */}
-          <div className="card">
-            <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.25rem" }}>Performance Breakdown</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1.25rem" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--primary-lt)" }}>
-                  {analysis.speechMetrics?.score != null ? `${Math.round(analysis.speechMetrics.score * 100)}%` : "—"}
-                </div>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", marginTop: "0.25rem" }}>Speech</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--violet)" }}>
-                  {analysis.nlpMetrics?.score != null ? `${Math.round(analysis.nlpMetrics.score * 100)}%` : "—"}
-                </div>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", marginTop: "0.25rem" }}>Language</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--emerald)" }}>
-                  {analysis.alignment?.score != null ? `${Math.round(analysis.alignment.score * 100)}%` : "—"}
-                </div>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", marginTop: "0.25rem" }}>Alignment</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--amber)" }}>
-                  {analysis.confidence != null ? `${Math.round(analysis.confidence * 100)}%` : "—"}
-                </div>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", marginTop: "0.25rem" }}>Overall</div>
-              </div>
+      {analysis && data.status !== "ANALYZING" && (
+        <>
+          {/* Score breakdown */}
+          <div className="card-elevated p-5 md:p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Performance Breakdown</h2>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricTile
+                label="Speech"
+                value={pct(analysis.speechMetrics?.score)}
+                className="text-primary"
+              />
+              <MetricTile
+                label="Language"
+                value={pct(analysis.nlpMetrics?.score)}
+                className="text-chart-4"
+              />
+              <MetricTile
+                label="Alignment"
+                value={pct(analysis.alignment?.score)}
+                className="text-success"
+              />
+              <MetricTile
+                label="Overall"
+                value={pct(analysis.confidence)}
+                className="text-warning"
+              />
             </div>
           </div>
 
-          {/* Strengths & Weaknesses */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem" }}>
-            <div className="card" style={{ borderLeft: "4px solid var(--emerald)" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "1.25rem" }}>🌟</span> Key Strengths
-              </h3>
-              <ul style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: 0, listStyle: "none" }}>
-                {(analysis.strengths || []).map((s: string, i: number) => (
-                  <li key={i} style={{ fontSize: "0.875rem", color: "var(--text-2)", display: "flex", gap: "0.6rem" }}>
-                    <span style={{ color: "var(--emerald)" }}>✓</span> {s}
-                  </li>
-                ))}
-              </ul>
+          <VisionSection vision={vision} />
+
+          {/* Strengths & focus */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card-elevated p-5 md:p-6 border-l-4 border-l-success">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+                <h3 className="font-semibold">Key Strengths</h3>
+              </div>
+              {(analysis.strengths ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No strengths recorded yet.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {(analysis.strengths as string[]).map((s, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-3 text-sm text-muted-foreground"
+                    >
+                      <Star className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="card" style={{ borderLeft: "4px solid var(--amber)" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "1.25rem" }}>🎯</span> Focus Areas
-              </h3>
-              <ul style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: 0, listStyle: "none" }}>
-                {(analysis.weaknesses || []).map((s: string, i: number) => (
-                  <li key={i} style={{ fontSize: "0.875rem", color: "var(--text-2)", display: "flex", gap: "0.6rem" }}>
-                    <span style={{ color: "var(--amber)" }}>!</span> {s}
-                  </li>
-                ))}
-              </ul>
+
+            <div className="card-elevated p-5 md:p-6 border-l-4 border-l-warning">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-5 w-5 text-warning" />
+                <h3 className="font-semibold">Focus Areas</h3>
+              </div>
+              {(analysis.weaknesses ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No focus areas flagged.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {(analysis.weaknesses as string[]).map((s, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-3 text-sm text-muted-foreground"
+                    >
+                      <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
-          {/* Detailed Suggestions */}
-          <div className="card">
-            <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Coaching Suggestions</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {(analysis.suggestions || []).concat(analysis.alignment?.notes || []).map((s: string, i: number) => (
-                <div key={i} style={{
-                  padding: "0.85rem 1rem", borderRadius: "var(--radius-md)",
-                  background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)",
-                  fontSize: "0.875rem", color: "var(--text-2)", lineHeight: 1.5
-                }}>
-                  💡 {s}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Transcript Highlights */}
-          {(analysis.highlights || []).length > 0 && (
-            <div className="card">
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Key Moments</h3>
-              <div style={{ display: "grid", gap: "0.75rem" }}>
-                {analysis.highlights.map((item: any, i: number) => (
-                  <div key={i} className="bubble-ai" style={{ padding: "1rem", fontSize: "0.875rem", borderLeft: "4px solid var(--primary)" }}>
-                    <div style={{ fontSize: "0.7rem", color: "var(--text-3)", fontWeight: 700, marginBottom: "0.4rem", textTransform: "uppercase" }}>Moment {i + 1}</div>
-                    {item.message || String(item)}
+          {/* Suggestions */}
+          {suggestions.length > 0 && (
+            <div className="card-elevated p-5 md:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Coaching Suggestions</h3>
+              </div>
+              <div className="space-y-3">
+                {suggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-lg bg-secondary/50 border border-border text-sm text-foreground"
+                  >
+                    {s}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Job Recommendations */}
-          {(analysis.jobs || []).length > 0 && (
-            <div className="card" style={{ borderTop: "4px solid #0077b5" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "1.25rem" }}>💼</span> Recommended Jobs
-              </h3>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-3)", marginBottom: "1.25rem" }}>
-                Based on your interview performance, here are some roles that match your skills.
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-                {analysis.jobs.map((job: any, i: number) => (
-                  <div key={i} style={{
-                    padding: "1.25rem", borderRadius: "var(--radius-md)",
-                    background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)",
-                    display: "flex", flexDirection: "column", gap: "0.75rem", position: "relative",
-                    overflow: "hidden"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <h4 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-1)", margin: 0, paddingRight: "3rem" }}>
-                        {job.role}
-                      </h4>
-                      <div style={{ 
-                        position: "absolute", top: "1.25rem", right: "1.25rem",
-                        fontSize: "0.8rem", fontWeight: 800, 
-                        color: job.match >= 80 ? "var(--emerald)" : "var(--primary-lt)",
-                        background: job.match >= 80 ? "rgba(16, 185, 129, 0.1)" : "rgba(59, 130, 246, 0.1)",
-                        padding: "0.2rem 0.5rem", borderRadius: "1rem"
-                      }}>
-                        {job.match}% Match
-                      </div>
+          {/* Highlights */}
+          {highlights.length > 0 && (
+            <div className="card-elevated p-5 md:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Key Moments</h3>
+              </div>
+              <div className="space-y-3">
+                {highlights.map((item, i) => (
+                  <div
+                    key={i}
+                    className="bubble-ai p-4 text-sm border-l-4 border-l-primary"
+                  >
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Moment {i + 1}
                     </div>
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-2)", margin: 0, lineHeight: 1.5, flexGrow: 1 }}>
-                      {job.explanation}
-                    </p>
-                    <a href={job.url} target="_blank" rel="noopener noreferrer" style={{
-                      display: "inline-block", marginTop: "0.5rem", padding: "0.5rem 1rem",
-                      background: "#0077b5", color: "white", fontSize: "0.85rem", fontWeight: 600,
-                      borderRadius: "0.3rem", textDecoration: "none", textAlign: "center",
-                      transition: "opacity 0.2s"
-                    }} onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"} onMouseOut={(e) => e.currentTarget.style.opacity = "1"}>
-                      Search on LinkedIn
-                    </a>
+                    {typeof item === "string" ? item : item.message ?? String(item)}
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Full Transcript */}
-      <div className="card">
-        <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.5rem" }}>Full Transcript</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {(data.segments || []).map((t: any) => (
-            <div key={t.id} style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignSelf: t.speaker === "user" ? "flex-end" : "flex-start", maxWidth: "85%" }}>
-              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-3)", alignSelf: t.speaker === "user" ? "flex-end" : "flex-start", padding: "0 0.5rem" }}>
-                {t.speaker === "ai" ? "COACH" : "YOU"}
-              </div>
-              <div className={t.speaker === "user" ? "bubble-user" : "bubble-ai"} style={{ padding: "0.85rem 1.1rem", fontSize: "0.9rem" }}>
-                {t.text}
-              </div>
-            </div>
-          ))}
+      {/* Transcript */}
+      <div className="card-elevated p-5 md:p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Mic className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold">Full Transcript</h2>
         </div>
+        {(data.segments ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            No transcript available.
+          </p>
+        ) : (
+          <div className="space-y-4 max-h-[32rem] overflow-y-auto pr-1">
+            {(data.segments as Array<{ id: string; speaker: string; text: string }>).map(
+              (t) => (
+                <div
+                  key={t.id}
+                  className={`flex flex-col gap-1 ${
+                    t.speaker === "user" ? "items-end" : "items-start"
+                  }`}
+                >
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-2">
+                    {t.speaker === "ai" ? "Coach" : "You"}
+                  </span>
+                  <div
+                    className={`max-w-[90%] md:max-w-[85%] px-4 py-3 text-sm ${
+                      t.speaker === "user" ? "bubble-user" : "bubble-ai"
+                    }`}
+                  >
+                    {t.text}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Footer Navigation */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "1rem", marginTop: "1rem" }}>
-        <Link href="/history" className="btn btn-ghost">← Back to History</Link>
-        <Link href="/session" className="btn btn-primary">Start New Session</Link>
+      {/* Footer */}
+      <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+        <Button variant="secondary" asChild className="w-full sm:w-auto">
+          <Link href="/history">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to History
+          </Link>
+        </Button>
+        <Button asChild className="w-full sm:w-auto">
+          <Link href="/session">
+            <Mic className="h-4 w-4 mr-1" />
+            Start New Session
+          </Link>
+        </Button>
       </div>
     </div>
   );

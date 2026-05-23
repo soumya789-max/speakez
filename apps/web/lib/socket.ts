@@ -72,6 +72,14 @@ export function openLiveSocket(args: {
     sendVideoFrame(data: string, mimeType = "image/jpeg") {
       sendRaw({ type: "video_frame", sessionId: args.sessionId, data, mimeType });
     },
+    sendVisionMetrics(metrics: {
+      eye_contact: number;
+      posture: "good" | "ok" | "needs_work";
+      movement: number;
+      face_present: boolean;
+    }) {
+      sendRaw({ type: "vision_metrics", sessionId: args.sessionId, metrics });
+    },
     close() {
       ws.close();
     }

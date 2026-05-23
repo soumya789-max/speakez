@@ -5,6 +5,7 @@ import { createGeminiLiveSession, type GeminiLiveSession } from "../services/gem
 import { normalizePersona, normalizePressureLevel } from "../services/scenarios.js";
 import { logger } from "../utils/logger.js";
 import { audioBufferStore } from "../utils/audioStore.js";
+import { visionMetricsStore } from "../utils/visionMetricsStore.js";
 
 // ── Message schemas (Zod) ───────────────────────────────────────────────────────
 // All inbound WebSocket messages are validated at runtime before any field access.
@@ -14,13 +15,24 @@ const UserTextSchema = z.object({ type: z.literal("user_text"), sessionId: z.str
 const AudioChunkSchema = z.object({ type: z.literal("audio_chunk"), sessionId: z.string().cuid(), data: z.string().min(1), mimeType: z.string().optional() });
 const AudioEndSchema = z.object({ type: z.literal("audio_end"), sessionId: z.string().cuid() });
 const VideoFrameSchema = z.object({ type: z.literal("video_frame"), sessionId: z.string().cuid(), data: z.string().min(1), mimeType: z.string().optional() });
+const VisionMetricsSchema = z.object({
+  type: z.literal("vision_metrics"),
+  sessionId: z.string().cuid(),
+  metrics: z.object({
+    eye_contact: z.number().min(0).max(1),
+    posture: z.enum(["good", "ok", "needs_work"]),
+    movement: z.number().min(0).max(1),
+    face_present: z.boolean()
+  })
+});
 
 const ClientMsgSchema = z.discriminatedUnion("type", [
   HelloSchema,
   UserTextSchema,
   AudioChunkSchema,
   AudioEndSchema,
-  VideoFrameSchema
+  VideoFrameSchema,
+  VisionMetricsSchema
 ]);
 
 type ClientMsg = z.infer<typeof ClientMsgSchema>;
@@ -244,6 +256,11 @@ export function registerLiveWs(wss: WebSocketServer) {
 
         if (parsed.type === "video_frame") {
           session.sendVideo({ data: parsed.data, mimeType: parsed.mimeType ?? "image/jpeg" });
+          return;
+        }
+
+        if (parsed.type === "vision_metrics") {
+          visionMetricsStore.append(parsed.sessionId, parsed.metrics);
           return;
         }
 

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
 
@@ -9,16 +9,7 @@ export function MobileHeaderAuth() {
     <UserButton />
   ) : (
     <SignInButton mode="modal">
-      <button style={{
-        padding: "0.4rem 0.8rem",
-        borderRadius: "6px",
-        background: "var(--primary)",
-        color: "white",
-        border: "none",
-        fontSize: "0.85rem",
-        fontWeight: 500,
-        cursor: "pointer"
-      }}>
+      <button type="button" className="btn btn-primary text-xs px-3 py-2">
         Sign In
       </button>
     </SignInButton>

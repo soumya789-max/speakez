@@ -8,6 +8,7 @@ from modules.speech import analyze_speech
 from modules.nlp import analyze_language
 from modules.alignment import analyze_alignment
 from modules.confidence import compute_confidence
+from modules.vision import analyze_vision
 from modules.voice import analyze_voice
 from modules.jobs import generate_job_recommendations
 
@@ -29,6 +30,8 @@ class AnalyzeRequest(BaseModel):
     # Optional: base64-encoded PCM audio (16kHz, 16-bit mono) for voice analysis
     audio_b64: Optional[str] = Field(default=None)
     audio_sample_rate: int = Field(default=16000)
+    # Optional: aggregated MediaPipe metrics from the web client (camera on)
+    vision_summary: Optional[Dict[str, Any]] = Field(default=None)
 
     @field_validator("transcript")
     @classmethod
@@ -89,8 +92,12 @@ def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
         logger.exception("alignment analysis failed")
         raise HTTPException(status_code=500, detail=f"alignment analysis error: {exc}") from exc
 
-    # Vision module placeholder
-    vision: Dict[str, float] = {"score": 0.7}
+    try:
+        vision = analyze_vision(req.vision_summary)
+    except Exception as exc:
+        logger.exception("vision analysis failed")
+        vision = analyze_vision(None)
+        vision["reason"] = str(exc)
 
     # Voice analysis — runs if audio was provided by client
     voice: Dict[str, Any] = {"available": False, "confidence_score": 0.68}
@@ -106,7 +113,9 @@ def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
     jobs = generate_job_recommendations(req.scenario, req.context, confidence)
 
     insights = {
-        "highlights": speech.get("highlights", []) + voice.get("highlights", []),
+        "highlights": speech.get("highlights", [])
+        + vision.get("highlights", [])
+        + voice.get("highlights", []),
         "strengths": nlp.get("strengths", []),
         "weaknesses": nlp.get("weaknesses", []),
         "suggestions": nlp.get("suggestions", []),
@@ -125,6 +134,7 @@ def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
         "speech": speech,
         "nlp": nlp,
         "alignment": alignment,
+        "vision": vision,
         "voice": voice,
         "confidence": confidence,
         "insights": insights,

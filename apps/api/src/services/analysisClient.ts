@@ -35,10 +35,23 @@ export interface AlignmentMetrics {
   notes: string[];
 }
 
+export interface VisionMetrics {
+  score: number;
+  available: boolean;
+  reason?: string;
+  eye_contact?: number | null;
+  posture_score?: number | null;
+  stability?: number | null;
+  face_present_ratio?: number | null;
+  sample_count?: number;
+  highlights?: SpeechHighlight[];
+}
+
 export interface AnalysisResponse {
   speech: SpeechMetrics;
   nlp: NlpMetrics;
   alignment: AlignmentMetrics;
+  vision?: VisionMetrics;
   confidence: number;
   insights: {
     highlights: SpeechHighlight[];
@@ -61,6 +74,7 @@ export async function runAnalysis(payload: {
   context: Record<string, unknown>;
   transcript: { speaker: string; text: string; ts?: string }[];
   audio_b64?: string | null;
+  vision_summary?: Record<string, unknown> | null;
 }): Promise<AnalysisResponse> {
   const base = process.env.ANALYSIS_SERVICE_URL || "http://127.0.0.1:8000";
   const timeoutMs = Number(process.env.ANALYSIS_TIMEOUT_MS || 180_000);

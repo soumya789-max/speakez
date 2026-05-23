@@ -35,7 +35,7 @@ dist/
 # venv/
 env/
 .env/
-
+*.venv/
 # Logs
 *.log
 npm-debug.log*

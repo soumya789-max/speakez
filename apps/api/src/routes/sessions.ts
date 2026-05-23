@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 import { buildStructuredContext } from "../services/contextEngine.js";
 import { runAnalysis } from "../services/analysisClient.js";
+import { visionMetricsStore } from "../utils/visionMetricsStore.js";
 import { SCENARIOS, normalizeScenario, normalizePersona, normalizePressureLevel } from "../services/scenarios.js";
 import { logger } from "../utils/logger.js";
 import { audioBufferStore } from "../utils/audioStore.js";
@@ -244,11 +245,14 @@ sessionsRouter.post("/:id/end", async (req, res, next) => {
             ts: s.createdAt.toISOString()
           }));
 
+        const visionSummary = visionMetricsStore.popSummary(id);
+
         const result = await runAnalysis({
           scenario: session.scenario,
           context: (session.contextJson as Record<string, unknown>) ?? {},
           transcript: trimmedTranscript,
-          audio_b64: audioBufferStore.pop(id)
+          audio_b64: audioBufferStore.pop(id),
+          vision_summary: visionSummary
         });
 
         // Prisma Json fields require InputJsonValue.
@@ -260,7 +264,7 @@ sessionsRouter.post("/:id/end", async (req, res, next) => {
           where: { sessionId: id },
           create: {
             sessionId: id,
-            speechMetrics: toJson(result.speech),
+            speechMetrics: toJson({ ...result.speech, vision: result.vision ?? null }),
             nlpMetrics: toJson(result.nlp),
             alignment: toJson(result.alignment),
             confidence: result.confidence,
@@ -270,7 +274,7 @@ sessionsRouter.post("/:id/end", async (req, res, next) => {
             suggestions: toJson(result.insights.suggestions)
           },
           update: {
-            speechMetrics: toJson(result.speech),
+            speechMetrics: toJson({ ...result.speech, vision: result.vision ?? null }),
             nlpMetrics: toJson(result.nlp),
             alignment: toJson(result.alignment),
             confidence: result.confidence,

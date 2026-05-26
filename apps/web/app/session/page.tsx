@@ -107,6 +107,8 @@ export default function LiveSessionPage() {
   const [title, setTitle] = useState("Mock interview");
   const [purposeMode, setPurposeMode] = useState<PurposeMode>("practice");
   const [resumeText, setResumeText] = useState("");
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [topicNotes, setTopicNotes] = useState("");
   const [freeText, setFreeText] = useState("");
@@ -293,6 +295,38 @@ export default function LiveSessionPage() {
     videoCaptureRef.current = null; setVisionMetrics(null); setIsStreamingVideo(false);
   }
 
+  async function handleResumeUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setIsParsingPdf(true);
+  setResumeFileName(file.name);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs",
+      import.meta.url
+    ).toString();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map((item: any) => item.str).join(" ");
+      fullText += pageText + "\n";
+    }
+    setResumeText(fullText.trim());
+  } catch (err) {
+    console.error(err);
+    setNudges([{ level: "warn", message: "Could not read PDF. Please paste your resume text manually." }]);
+  } finally {
+    setIsParsingPdf(false);
+  }
+}
+
+
+
+  
   async function start() {
     try {
       const sc = SCENARIOS.find((x) => x.id === scenario)!;
@@ -476,9 +510,24 @@ export default function LiveSessionPage() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
           <div>
-            <label style={{ fontSize: "0.82rem", color: "var(--text-3)", display: "block", marginBottom: "0.35rem" }}>Resume / background</label>
-            <textarea value={resumeText} onChange={(e) => setResumeText(e.target.value)} rows={5} placeholder="Experience, skills, projects..." className="input-field resize-none" />
-          </div>
+  <label style={{ fontSize: "0.82rem", color: "var(--text-3)", display: "block", marginBottom: "0.35rem" }}>
+    Resume / background
+  </label>
+  <div style={{ marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+    <label style={{
+      display: "inline-flex", alignItems: "center", gap: "0.4rem",
+      padding: "0.4rem 0.8rem", borderRadius: "6px",
+      background: "var(--primary)", color: "white",
+      fontSize: "0.8rem", fontWeight: 500, cursor: "pointer"
+    }}>
+      📄 Upload Resume (PDF)
+      <input type="file" accept=".pdf" style={{ display: "none" }} onChange={handleResumeUpload} />
+    </label>
+    {isParsingPdf && <span style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>Reading PDF...</span>}
+    {resumeFileName && <span style={{ fontSize: "0.8rem", color: "var(--text-3)" }}>✅ {resumeFileName}</span>}
+  </div>
+  <textarea value={resumeText} onChange={(e) => setResumeText(e.target.value)} rows={5} placeholder="Upload PDF above, or type your experience, skills, projects here..." className="input-field resize-none" />
+</div>
           <div>
             <label style={{ fontSize: "0.82rem", color: "var(--text-3)", display: "block", marginBottom: "0.35rem" }}>Role / audience / topic</label>
             <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={5} placeholder="Job description, pitch audience, stakeholders..." className="input-field resize-none" />

@@ -51,7 +51,7 @@ export function HeroSection() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Master your communication skills with AI-powered mock interviews, real-time speech analysis, and personalized coaching. Land your dream job with confidence.
+            Master your communication skills with AI-powered conversations - pitches, meetings or interviews with real-time speech analysis and personalized coaching.
           </p>
 
           {/* CTA Buttons */}

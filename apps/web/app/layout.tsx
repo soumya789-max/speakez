@@ -2,8 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Sidebar, MobileHeader, MobileNav } from "@/components/sidebar";
-
+import LayoutWrapper from "@/components/layout-wrapper";
 export const metadata: Metadata = {
   title: "SpeakEZ – Communication Coach",
   description:
@@ -25,19 +24,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="flex min-h-screen">
-              <Sidebar />
-
-              <div className="flex-1 flex flex-col min-w-0">
-                <MobileHeader />
-
-                <main className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto">
-                  {children}
-                </main>
-
-                <MobileNav />
-              </div>
-            </div>
+            <LayoutWrapper>{children}</LayoutWrapper>
           </ThemeProvider>
         </body>
       </html>

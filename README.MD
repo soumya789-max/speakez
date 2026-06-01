@@ -1,71 +1,164 @@
-# SpeakEZ (MVP)
+🎙️ SpeakEZ — AI-Powered Work Simulation Platform
 
-Context-aware mock interview practice with lightweight live nudges + post-session insights.
+> **Built for the LinkedIn Hackathon** · Team Spark
 
-## What’s implemented
+SpeakEZ is an AI-powered platform that helps students and early professionals build real workplace communication confidence — before entering the workforce. It simulates high-stakes scenarios like job interviews, investor pitches, and team meetings with a live, context-aware AI coach, giving users a safe space to practise, fail, and improve.
 
-- **Live simulation (Interview)**: Web UI sends your answers over a WebSocket; backend responds with an interviewer follow-up.
-  - Uses **Gemini** if `GEMINI_API_KEY` is set; otherwise uses a safe fallback interviewer.
-- **Context injection**: Optional context text is structured and injected into interviewer prompts + analysis relevance scoring.
-- **Real-time nudges**: Basic filler-word + pace nudges (non-intrusive).
-- **Analysis pipeline**: Python service computes speech metrics, language quality signals, purpose alignment, and a confidence score.
-- **Progress tracking**: Sessions + transcripts + analysis results are persisted in a DB (SQLite for MVP dev; easily upgradable to Postgres).
+---
 
-## Quickstart (Docker)
+##  Key Features
 
-1) Create `.env` in repo root:
+### Live AI Simulation
+- Real-time voice conversation with an AI coach powered by the **Google Gemini Multimodal Live API**
+- Supports three professional scenarios: **Job Interview**, **Investor Pitch**, and **Team Meeting**
+- Multiple AI personas (e.g., Supportive Coach, Tough Panel, Skeptical Investor) with configurable pressure levels (Calm → Intense)
 
-- `GEMINI_API_KEY=` (optional, for better interviewer behavior)
-- `OPENAI_API_KEY=` (optional, not required for MVP)
+###  Context-Aware Intelligence
+- Upload your **resume, job descriptions, or project notes** to give the AI full context about you
+- The AI adapts its questions and coaching dynamically based on your specific role, company, and goals
 
-2) Run:
+###  Real-Time Visual Feedback
+- Live **posture stability** and **eye contact** nudges powered by **Google MediaPipe**, running entirely client-side in the browser — no video is ever uploaded to the server
 
-```bash
-docker compose up --build
+###  Deep Post-Session Analytics
+Multi-pipeline analysis running in parallel after each session:
+- **Speech Analysis** — Detects filler words, speech pace (WPM), pauses, and fluency
+- **NLP Scoring** — Evaluates clarity, structural frameworks (e.g., STAR method), and contextual relevance using semantic embeddings (`sentence-transformers`)
+- **Acoustic Analysis** — Extracts vocal confidence features from raw audio using `librosa`
+- **Overall Confidence Score** — A weighted composite across all signals
+
+### 📈 Progress Tracking & Roadmap
+- **Session History** with per-session breakdowns and confidence scores
+- **Improvement Roadmap** — Personalised drills and exercises targeting your most common recurring weaknesses (filler words, pacing, structure)
+
+---
+
+## 🏛️ Architecture
+
+```
+[ User / Browser ]
+      |
+      | (WebSockets + REST)
+      ↓
+[ Node.js Gateway API ]  ←──── [ PostgreSQL (via Prisma) ]
+      |                  \
+      | (Bidi Streaming)   \ (JSON Payload — post-session)
+      ↓                    ↓
+[ Gemini Live API ]   [ Python Analytics Microservice ]
+  Real-time AI coach    NLP · Speech · Audio
 ```
 
-3) Open the API:
+**Key Design Decision:** The real-time Gemini conversation and the heavy ML analysis are deliberately split across two backends. This ensures the live AI conversation never stutters while Python processes analytics in the background. Vision metrics (MediaPipe) run on-device in the browser — no video frames are ever sent over the network.
 
-- `http://localhost:5000/health`
+---
 
-4) Start the web app (local dev):
+##  Tech Stack
 
-```bash
-cd apps/web
-npm install
-npm run dev
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 15, React 19, TypeScript, Tailwind CSS v4 |
+| **Authentication** | Clerk |
+| **Client-Side Vision** | Google MediaPipe Tasks Vision |
+| **Backend Gateway** | Node.js, Express.js v5, TypeScript |
+| **Database** | SQLite via Prisma ORM |
+| **Real-Time AI** | Google Gemini Multimodal Live API |
+| **Analytics Service** | Python 3, FastAPI, Uvicorn |
+| **NLP / Embeddings** | `sentence-transformers`, PyTorch |
+| **Audio Analysis** | `librosa`, `soundfile`, `numpy` |
+| **Validation** | Pydantic v2 (Python) |
+
+---
+
+##  Project Structure
+
+```
+speakez/
+├── apps/
+│   ├── web/              # Next.js frontend (port 3000)
+│   └── api/              # Node.js Express gateway (port 5000)
+├── services/
+│   └── analysis-service/ # Python FastAPI microservice (port 8000)
+│       ├── modules/
+│       │   ├── speech.py       # Speech fluency analysis
+│       │   ├── nlp.py          # Semantic NLP scoring
+│       │   ├── alignment.py    # Scenario alignment scoring
+│       │   ├── voice.py        # Acoustic / vocal analysis
+│       │   ├── confidence.py   # Composite score computation
+│       │   └── jobs.py         # LinkedIn job recommendation engine
+│       └── routes/
+│           └── analyze.py      # Main analysis endpoint
+└── package.json          # Monorepo root (npm workspaces)
 ```
 
-Then open `http://localhost:3000`.
+---
 
-## Local dev (no Docker)
+## ⚙️Getting Started
 
-- Set `DATABASE_URL=file:./dev.db` (recommended for quickstart on Windows).
-- Start analysis service:
+### Prerequisites
+- **Node.js** v20+
+- **Python** 3.10+
+- A **Gemini API Key** (from [Google AI Studio](https://aistudio.google.com))
+- A **Clerk** account for authentication
 
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-team/speakez.git
+cd speakez
+```
+
+### 2. Configure Environment Variables
+
+Create `apps/api/.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+ANALYSIS_SERVICE_URL=http://127.0.0.1:8000
+DATABASE_URL=your_postgresql_connection_string
+CLERK_SECRET_KEY=your_clerk_secret_key
+```
+
+Create `apps/web/.env.local`:
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+### 3. Start the Python Analytics Service
 ```bash
 cd services/analysis-service
+
+# Create and activate virtual environment
 python -m venv .venv
-.venv\\Scripts\\activate
+.\.venv\Scripts\activate       # Windows
+# source .venv/bin/activate    # Mac/Linux
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Start the FastAPI server
 uvicorn app:app --reload --port 8000
 ```
 
-- Start API:
-
+### 4. Start the Node.js Monorepo (Web + API)
+Open a new terminal in the project root:
 ```bash
-cd apps/api
+# Install all dependencies
 npm install
-npx prisma generate
-npx prisma db push
+
+# Run database migrations
+npm --workspace apps/api run prisma:migrate
+
+# Start both Web and API in parallel
 npm run dev
 ```
 
-- Start web:
+### 5. Open the App
+| Service | URL |
+|---|---|
+| Web App | http://localhost:3000 |
+| API Gateway | http://localhost:5000 |
+| Analytics Service | http://localhost:8000 |
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+---
+Thank you!
 
+---

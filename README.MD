@@ -92,7 +92,7 @@ speakez/
 
 ---
 
-## ⚙️Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Node.js** v20+
@@ -102,7 +102,7 @@ speakez/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-team/speakez.git
+git clone https://github.com/soumya789-max/speakez.git
 cd speakez
 ```
 
@@ -111,16 +111,21 @@ cd speakez
 Create `apps/api/.env`:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_LIVE_MODEL=gemini-3.1-flash-live-preview
 ANALYSIS_SERVICE_URL=http://127.0.0.1:8000
-DATABASE_URL=your_postgresql_connection_string
+DATABASE_URL=file:./dev.db
 CLERK_SECRET_KEY=your_clerk_secret_key
 ```
 
 Create `apps/web/.env.local`:
 ```env
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_LIVE_MODEL=gemini-3.1-flash-live-preview
+ANALYSIS_SERVICE_URL=http://localhost:8000
+ANALYSIS_TIMEOUT_MS=180000
+DATABASE_URL=file:./dev.db
+PORT=5000
+ALLOWED_ORIGINS=http://localhost:3000
 
 ### 3. Start the Python Analytics Service
 ```bash

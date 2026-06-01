@@ -1,4 +1,4 @@
-🎙️ SpeakEZ — AI-Powered Work Simulation Platform
+# 🎙️ SpeakEZ — AI-Powered Work Simulation Platform
 
 > **Built for the LinkedIn Hackathon** · Team Spark
 
@@ -27,13 +27,13 @@ Multi-pipeline analysis running in parallel after each session:
 - **Acoustic Analysis** — Extracts vocal confidence features from raw audio using `librosa`
 - **Overall Confidence Score** — A weighted composite across all signals
 
-### 📈 Progress Tracking & Roadmap
+###  Progress Tracking & Roadmap
 - **Session History** with per-session breakdowns and confidence scores
 - **Improvement Roadmap** — Personalised drills and exercises targeting your most common recurring weaknesses (filler words, pacing, structure)
 
 ---
 
-## 🏛️ Architecture
+##  Architecture
 
 ```
 [ User / Browser ]
